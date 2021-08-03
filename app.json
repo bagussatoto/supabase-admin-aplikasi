@@ -1,0 +1,12 @@
+{
+    "name": "supabase-admin-api",
+    "description": "an admin api for configuring the supabase server",
+    "website": "https://supabase.io",
+    "repository": "https://github.com/supabase/supabase-admin-api",
+    "env": {
+      "JWT_SECRET": {
+        "required": true
+      }
+    }
+  }
+  

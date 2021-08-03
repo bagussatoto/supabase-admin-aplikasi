@@ -1,0 +1,10 @@
+
+.env
+vendor/
+supabase-admin-api
+supabase-admin-api-arm64
+
+.DS_Store
+.vscode
+.data
+/.idea/

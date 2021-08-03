@@ -1,0 +1,81 @@
+name: Build and Release on Push to Master
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        node: ['12']
+
+    outputs:
+      status: ${{ steps.pre-release.outputs.release != steps.post-release.outputs.release }}
+
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - id: pre-release
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          owner: supabase
+          repo: supabase-admin-api
+          excludes: prerelease, draft
+
+      - name: Set up Node
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Release on GitHub
+        id: github-release
+        run: npx semantic-release -p        \
+          @semantic-release/commit-analyzer \
+          @semantic-release/github         \
+          @semantic-release/release-notes-generator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: post-release
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          owner: supabase
+          repo: supabase-admin-api
+          excludes: prerelease, draft
+
+      
+
+  deploy:
+    needs: release
+    runs-on: ubuntu-18.04
+    if: success() && needs.release.outputs.status == 'true'
+    steps:
+      - uses: actions/checkout@v2
+      
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.14.4' # The Go version to download (if necessary) and use.
+
+      - run: make deps
+
+      - run: make all
+
+      - id: releases
+        uses: pozetroninc/github-action-get-latest-release@master
+        with:
+          owner: supabase
+          repo: supabase-admin-api
+          excludes: prerelease, draft
+
+      - run: tar -czvf supabase-admin-api-${{ steps.releases.outputs.release }}-x86.tar.gz supabase-admin-api
+      - run: mv supabase-admin-api-arm64 supabase-admin-api
+      - run: tar -czvf supabase-admin-api-${{ steps.releases.outputs.release }}-arm64.tar.gz supabase-admin-api
+
+      - uses: AButler/upload-release-assets@v2.0
+        with:
+          files: 'supabase-admin-api-${{ steps.releases.outputs.release }}*.tar.gz'
+          release-tag: ${{ steps.releases.outputs.release }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
